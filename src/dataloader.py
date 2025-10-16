@@ -211,4 +211,5 @@ def get_dataloaders(batch_size=32, num_workers=4, limit_classes=None):
         pin_memory=True
     )
 
-    return train_loader, val_loader, train_dataset.classes
+    # return train_loader, val_loader, train_dataset.classes
+    return train_loader, val_loader
