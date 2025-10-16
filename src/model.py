@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 ###################################################################################################
-# ResNet-50 (ImageNet) implementation with detailed line-by-line comments
+# ResNet-50 (ImageNet) implementation 
 # - 7x7 conv stem (stride=2), 3x3 maxpool (stride=2)
 # - 4 stages of Bottleneck blocks with counts [3, 4, 6, 3]
 # - Global average pooling and fully-connected classifier
