@@ -4,98 +4,52 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchvision import datasets, transforms
-from torchsummary import summary
+# from torchsummary import summary
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 
 # Other packages
+import os
+import logging
 from tqdm import tqdm
+from datetime import datetime
 
 # Import modules
-from ..src.dataloader import ImageNetDataLoader
-from ..src.model import ResNetModel
+from ..src.dataloader import get_dataloaders
+from ..src.model import ResNet50
 
-## Data Transformations ##
+## Logging Setup ##
 
-# ImageNet statistics
-mean = [0.485, 0.485, 0.406]
-std = [0.229, 0.224, 0.225]
+# Create logs and checkpoints directory
+os.makedirs('logs', exist_ok=True)
+os.makedirs('checkpoints', exist_ok=True)
 
-# Train data transformations
-train_transforms = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.RandomResizedCrop(
-       224, interpolation=transforms.InterpolationMode.BILINEAR, antialias=True
-    ),
-    transforms.RandomHorizontalFlip(0.5),
-    transforms.Normalize(mean=mean, std=std)
-])
-
-# Validation data transformations
-val_transforms = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Resize(size=256, antialias=True),
-    transforms.CenterCrop(224),
-    transforms.Normalize(mean=mean, std=std)
-])
-
-## Train & Validation Datasets ##
-
-# Load ImageNet data
-train_dataset = datasets.ImageFolder(
-    root="imagenet_sample_4x12",
-    transform=train_transforms
+# Logging configuration
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
 )
 
-val_dataset = datasets.ImageFolder(
-    root="imagenet_sample_4x4",
-    transform=val_transforms
-)
+# Initialize logging
+start_time = datetime.now().strftime(r'%Y%m%d_%H%M%S_%Z')
+log_filename = f'logs/training_{start_time}.log'
+logger = logging.getLogger(__name__)
+logger.info("=== ResNet50 ImageNet-1K Training Started ===")
 
-## Train/Validation Dataloaders ##
+## Dataloaders setup ##
+logger.info("Loading ImageNet dataloaders...")
+train_loader, val_loader = get_dataloaders()
+logger.info(f"Train loader: {len(train_loader)} batches")
+logger.info(f"Validation loader: {len(val_loader)} batches")
 
-# Set seed
-SEED = 1
+## Model setup ##
+logger.info("Loading ResNet model...")
+model = ResNet50()
+logger.info("ResNet model loaded successfully")
 
-# For reproducibility
-torch.manual_seed(SEED)
-if torch.cuda.is_available():
-    torch.cuda.manual_seed(SEED)
-
-# Train dataloader
-train_sampler = torch.utils.data.RandomSampler(train_dataset)
-train_loader = torch.utils.data.DataLoader(
-    train_dataset,
-    batch_size=16,
-    sampler=train_sampler,
-    num_workers=4,
-    pin_memory=True,
-)
-
-# Val dataloader
-val_loader = torch.utils.data.DataLoader(
-    val_dataset,
-    batch_size=64,
-    num_workers=4,
-    shuffle=False,
-    pin_memory=True
-)
-
-## Base ResNet Model ##
-
-# ResNet base model
-from torchvision.models import resnet50
-model = resnet50()
-
-# Model summary
-device = (
-   "cuda" if torch.cuda.is_available()
-    else "cpu"
-)
-print('Device =', device)
-model = model.to(device)
-summary(model, input_size=(3, 224, 224))
+## Device setup ##
+device = "cuda" if torch.cuda.is_available() else "cpu"
+logger.info(f"Using device = {device}")
 
 ## Train and Test Functions ##
 
@@ -144,7 +98,7 @@ def train(model, device, train_loader, optimizer, epoch):
 
   return train_losses[-1], train_acc[-1]
 
-# Test workflow
+# Test function
 def test(model, device, test_loader):
     model.eval()  # Set to evaluation mode
     test_loss = 0
@@ -173,18 +127,33 @@ def test(model, device, test_loader):
 ## Training and Testing the Model ##
 
 # Training parameters
-EPOCHS = 4
-model = model.to(device)
+EPOCHS = 50
+logger.info(f"Training configuration: {EPOCHS} epochs")
+model = model.to(device)  # Move model to device
 optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=1e-4)
 scheduler = StepLR(optimizer, step_size=25, gamma=0.1)
+logger.info(f"Optimizer: {optimizer}")
+logger.info(f"Scheduler: {scheduler}")
 
 # Training loop
+logger.info("Starting training loop...")
 acc_best = 0
 for epoch in range(EPOCHS):
+    logger.info(f"=" * 60)
+    logger.info(f"EPOCH: {epoch+1}/{EPOCHS} | LR: {scheduler.get_last_lr()[0]:.6f}")
     print(f'EPOCH: {epoch} | LR: {scheduler.get_last_lr()[0]:.6f}')
+    
+    # Training phase
     loss_train, acc_train = train(model, device, train_loader, optimizer, epoch)
     scheduler.step()
+    
+    # Validation phase
     loss_test, acc_test = test(model, device, val_loader)
+
+    # Log epoch summary
+    logger.info(f"Epoch {epoch+1} Summary:")
+    logger.info(f"  Train Loss: {loss_train:.4f}, Train Accuracy: {acc_train:.2f}%")
+    logger.info(f"  Validation Loss: {loss_test:.4f}, Validation Accuracy: {acc_test:.2f}%")
 
     # Save training state
     torch.save({
@@ -192,9 +161,20 @@ for epoch in range(EPOCHS):
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
         'scheduler_state_dict': scheduler.state_dict(),
-    }, 'checkpoint.pth')
+    }, 'checkpoints/checkpoint.pth')
+    logger.info("Checkpoint saved")
 
     # Save best weights
     if acc_test > acc_best:
       acc_best = acc_test
-      torch.save(model.state_dict(), "best_model_weights.pth")
+      torch.save(model.state_dict(), "checkpoints/best_model_weights.pth")
+      logger.info(f"New best accuracy: {acc_best:.2f}% - Best model weights saved")
+    
+    # Save log file periodically
+    if (epoch + 1) % 5 == 0:  # Every 5 epochs
+        logger.info(f"Saving log file at epoch {epoch+1}")
+        logger.save(log_filename)
+
+logger.info("=" * 60)
+logger.info("Training completed!")
+logger.info(f"Best validation accuracy achieved: {acc_best:.2f}%")
