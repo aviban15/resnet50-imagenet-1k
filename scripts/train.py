@@ -4,8 +4,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchvision import datasets, transforms
-from torchsummary import summary
+# from torchsummary import summary
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 
@@ -16,13 +15,14 @@ from tqdm import tqdm
 from datetime import datetime
 
 # Import modules
-from ..src.dataloader import ImageNetDataLoader
-from ..src.model import ResNetModel
+from ..src.dataloader import get_dataloaders
+from ..src.model import ResNet50
 
 ## Logging Setup ##
 
-# Create logs directory
+# Create logs and checkpoints directory
 os.makedirs('logs', exist_ok=True)
+os.makedirs('checkpoints', exist_ok=True)
 
 # Logging configuration
 logging.basicConfig(
@@ -38,13 +38,13 @@ logger.info("=== ResNet50 ImageNet-1K Training Started ===")
 
 ## Dataloaders setup ##
 logger.info("Loading ImageNet dataloaders...")
-train_loader, val_loader = ImageNetDataLoader()
+train_loader, val_loader = get_dataloaders()
 logger.info(f"Train loader: {len(train_loader)} batches")
 logger.info(f"Validation loader: {len(val_loader)} batches")
 
 ## Model setup ##
 logger.info("Loading ResNet model...")
-model = ResNetModel()
+model = ResNet50()
 logger.info("ResNet model loaded successfully")
 
 ## Device setup ##
@@ -161,13 +161,13 @@ for epoch in range(EPOCHS):
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
         'scheduler_state_dict': scheduler.state_dict(),
-    }, 'checkpoint.pth')
+    }, 'checkpoints/checkpoint.pth')
     logger.info("Checkpoint saved")
 
     # Save best weights
     if acc_test > acc_best:
       acc_best = acc_test
-      torch.save(model.state_dict(), "best_model_weights.pth")
+      torch.save(model.state_dict(), "checkpoints/best_model_weights.pth")
       logger.info(f"New best accuracy: {acc_best:.2f}% - Best model weights saved")
     
     # Save log file periodically
