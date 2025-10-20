@@ -9,15 +9,21 @@ import torch.nn.functional as F
 # - Global average pooling and fully-connected classifier
 ###################################################################################################
 
+# Utility functions
 
-def conv1x1(in_channels: int, out_channels: int, stride: int = 1) -> nn.Conv2d:
-	# 1x1 convolution used to project channel dimensions and optionally downsample spatially
-	return nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride, bias=False)
+# 1x1 convolution & optional stride
+def conv1x1(in_planes: int, out_planes: int, stride: int = 1) -> nn.Conv2d:
+	return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
+
+# 3x3 convolution with padding = 1 & optional stride and groups
+def conv3x3(in_planes: int, out_planes: int, stride: int = 1, groups: int = 1) -> nn.Conv2d:
+	return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, groups=groups, bias=False)
 
 
+# Bottleneck block as per ResNet V1.5 where maxpooling is performed after at 3x3 convolution(self.conv2), rather than after the first 1x1 convolution(self.conv1) block
 class Bottleneck(nn.Module):
-	# Bottleneck block expands channel dimensions by a factor of 4
-	expansion = 4
+	
+	expansion = 4 # Bottleneck block expands channel dimensions by a factor of 4
 
 	def __init__(
 		self,
@@ -38,19 +44,20 @@ class Bottleneck(nn.Module):
 		width = int(planes * (base_width / 64.0))
 
 		# First 1x1 convolution reduces channel dimension
-		self.conv1 = nn.Conv2d(inplanes, width, kernel_size=1, bias=False)
+		self.conv1 = conv1x1(inplanes, width)
 		self.bn1 = norm_layer(width)
 
-		# 3x3 convolution performs spatial processing; stride may downsample
-		self.conv2 = nn.Conv2d(width, width, kernel_size=3, stride=stride, padding=1, bias=False)
+		# 3x3 convolution performs spatial processing
+		self.conv2 = conv3x3(width, width, stride) # Question: why width is used for both in_planes and out_planes? Because the bottleneck block is designed to have the same number of output channels as the input channels?
 		self.bn2 = norm_layer(width)
 
 		# Final 1x1 convolution expands to planes * expansion channels
-		self.conv3 = nn.Conv2d(width, planes * self.expansion, kernel_size=1, bias=False)
+		self.conv3 = conv1x1(width, planes * self.expansion)
 		self.bn3 = norm_layer(planes * self.expansion)
 
 		# Optional downsampling/projection for the residual path to match shape
 		self.downsample = downsample
+		self.stride = stride
 
 		# Shared ReLU activation (inplace for memory efficiency)
 		self.relu = nn.ReLU(inplace=True)
@@ -71,7 +78,7 @@ class Bottleneck(nn.Module):
 
 		# 1x1 conv -> BN (no activation yet)
 		out = self.conv3(out)
-		out = self.bn3(out)
+		out = self.bn3(out) # Question: why no ReLU after the final 1x1 convolution? Because the final 1x1 convolution is used to expand the channel dimensions, and the ReLU activation is not needed here.
 
 		# If the spatial/channel shape changed, project the identity
 		if self.downsample is not None:
@@ -108,10 +115,10 @@ class ResNet(nn.Module):
 		self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
 		self.bn1 = norm_layer(self.inplanes)
 		self.relu = nn.ReLU(inplace=True)
-		self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+		self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1) # Question: why maxpooling is performed after the 7x7 convolution? Because the maxpooling is used to reduce the spatial resolution, and the 7x7 convolution is used to extract the features.
 
 		# Residual stages: the first block in each stage may downsample (stride=2)
-		self.layer1 = self._make_layer(block, 64,  layers[0], stride=1)
+		self.layer1 = self._make_layer(block, 64,  layers[0])
 		self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
 		self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
 		self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
@@ -199,6 +206,6 @@ class ResNet(nn.Module):
 		return self._forward_impl(x)
 
 
-def ResNet50(num_classes: int = 1000) -> ResNet:
+def get_resnet50(num_classes: int = 1000) -> ResNet:
 	# Factory function producing a standard ResNet-50 with 1000-way classifier by default
 	return ResNet(Bottleneck, [3, 4, 6, 3], num_classes)
