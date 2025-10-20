@@ -48,7 +48,7 @@ class Bottleneck(nn.Module):
 		self.bn1 = norm_layer(width)
 
 		# 3x3 convolution performs spatial processing
-		self.conv2 = conv3x3(width, width, stride) # Question: why width is used for both in_planes and out_planes? Because the bottleneck block is designed to have the same number of output channels as the input channels?
+		self.conv2 = conv3x3(width, width, stride) # width is used for both in_planes and out_planes? Because the bottleneck block is designed to have the same number of output channels as the input channels?
 		self.bn2 = norm_layer(width)
 
 		# Final 1x1 convolution expands to planes * expansion channels
@@ -78,7 +78,7 @@ class Bottleneck(nn.Module):
 
 		# 1x1 conv -> BN (no activation yet)
 		out = self.conv3(out)
-		out = self.bn3(out) # Question: why no ReLU after the final 1x1 convolution? Because the final 1x1 convolution is used to expand the channel dimensions, and the ReLU activation is not needed here.
+		out = self.bn3(out) # no ReLU after the final 1x1 convolution? Because the final 1x1 convolution is used to expand the channel dimensions, and the ReLU activation is not needed here.
 
 		# If the spatial/channel shape changed, project the identity
 		if self.downsample is not None:
@@ -115,7 +115,7 @@ class ResNet(nn.Module):
 		self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
 		self.bn1 = norm_layer(self.inplanes)
 		self.relu = nn.ReLU(inplace=True)
-		self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1) # Question: why maxpooling is performed after the 7x7 convolution? Because the maxpooling is used to reduce the spatial resolution, and the 7x7 convolution is used to extract the features.
+		self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1) # maxpooling is performed after the 7x7 convolution? Because the maxpooling is used to reduce the spatial resolution, and the 7x7 convolution is used to extract the features.
 
 		# Residual stages: the first block in each stage may downsample (stride=2)
 		self.layer1 = self._make_layer(block, 64,  layers[0])
