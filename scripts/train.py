@@ -17,6 +17,7 @@ from datetime import datetime
 # Import modules
 from ..src.dataloader import get_dataloaders
 from ..src.model import ResNet50
+from config import *
 
 ## Logging Setup ##
 
@@ -38,7 +39,7 @@ logger.info("=== ResNet50 ImageNet-1K Training Started ===")
 
 ## Dataloaders setup ##
 logger.info("Loading ImageNet dataloaders...")
-train_loader, val_loader = get_dataloaders()
+train_loader, val_loader = get_dataloaders(TRAIN_DIR, VAL_DIR)
 logger.info(f"Train loader: {len(train_loader)} batches")
 logger.info(f"Validation loader: {len(val_loader)} batches")
 
