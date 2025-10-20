@@ -14,9 +14,9 @@ import logging
 from tqdm import tqdm
 from datetime import datetime
 
-# Import modules
+# Import modules and configurations
 from ..src.dataloader import get_dataloaders
-from ..src.model import ResNet50
+from ..src.model import get_resnet50
 from config import *
 
 ## Logging Setup ##
@@ -39,13 +39,17 @@ logger.info("=== ResNet50 ImageNet-1K Training Started ===")
 
 ## Dataloaders setup ##
 logger.info("Loading ImageNet dataloaders...")
-train_loader, val_loader = get_dataloaders(TRAIN_DIR, VAL_DIR)
+train_loader, val_loader = get_dataloaders(
+   TRAIN_DIR, VAL_DIR,
+   batch_size=BATCH_SIZE,
+   num_workers=NUM_WORKERS
+)
 logger.info(f"Train loader: {len(train_loader)} batches")
 logger.info(f"Validation loader: {len(val_loader)} batches")
 
 ## Model setup ##
 logger.info("Loading ResNet model...")
-model = ResNet50()
+model = get_resnet50(num_classes=NUM_CLASSES)
 logger.info("ResNet model loaded successfully")
 
 ## Device setup ##
@@ -128,7 +132,7 @@ def test(model, device, test_loader):
 ## Training and Testing the Model ##
 
 # Training parameters
-EPOCHS = 50
+EPOCHS = NUM_EPOCHS
 logger.info(f"Training configuration: {EPOCHS} epochs")
 model = model.to(device)  # Move model to device
 optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=1e-4)
