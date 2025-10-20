@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 # from torchsummary import summary
 import torch.optim as optim
-from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import StepLR, CosineAnnealingLR
 
 # Other packages
 import os
@@ -132,7 +132,8 @@ EPOCHS = 50
 logger.info(f"Training configuration: {EPOCHS} epochs")
 model = model.to(device)  # Move model to device
 optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=1e-4)
-scheduler = StepLR(optimizer, step_size=25, gamma=0.1)
+# scheduler = StepLR(optimizer, step_size=25, gamma=0.1)
+scheduler = CosineAnnealingLR(optimizer, T_max=EPOCHS, eta_min=1e-4)
 logger.info(f"Optimizer: {optimizer}")
 logger.info(f"Scheduler: {scheduler}")
 
