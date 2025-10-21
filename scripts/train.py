@@ -15,9 +15,9 @@ from tqdm import tqdm
 from datetime import datetime
 
 # Import modules and configurations
-from ..src.dataloader import get_dataloaders
-from ..src.model import get_resnet50
-from config import *
+from src.dataloader import get_dataloaders
+from src.model import get_resnet50
+from scripts.config import *
 
 ## Logging Setup ##
 
@@ -26,14 +26,14 @@ os.makedirs('logs', exist_ok=True)
 os.makedirs('checkpoints', exist_ok=True)
 
 # Logging configuration
+start_time = datetime.now().strftime(r'%Y%m%d_%H%M%S_%Z')
 logging.basicConfig(
+    filename=f'logs/training_{start_time}.log',
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
 )
 
 # Initialize logging
-start_time = datetime.now().strftime(r'%Y%m%d_%H%M%S_%Z')
-log_filename = f'logs/training_{start_time}.log'
 logger = logging.getLogger(__name__)
 logger.info("=== ResNet50 ImageNet-1K Training Started ===")
 
@@ -177,9 +177,7 @@ for epoch in range(EPOCHS):
       logger.info(f"New best accuracy: {acc_best:.2f}% - Best model weights saved")
     
     # Save log file periodically
-    if (epoch + 1) % 5 == 0:  # Every 5 epochs
-        logger.info(f"Saving log file at epoch {epoch+1}")
-        logger.save(log_filename)
+    logger.info(f"Epoch {epoch+1} completed and logged.")
 
 logger.info("=" * 60)
 logger.info("Training completed!")
