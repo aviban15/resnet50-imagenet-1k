@@ -132,12 +132,11 @@ def test(model, device, test_loader):
 ## Training and Testing the Model ##
 
 # Training parameters
-EPOCHS = NUM_EPOCHS
-logger.info(f"Training configuration: {EPOCHS} epochs")
+logger.info(f"Training configuration: {NUM_EPOCHS} epochs")
 model = model.to(device)  # Move model to device
 optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=1e-4)
 # scheduler = StepLR(optimizer, step_size=25, gamma=0.1)
-scheduler = CosineAnnealingLR(optimizer, T_max=EPOCHS, eta_min=1e-4)
+scheduler = CosineAnnealingLR(optimizer, T_max=NUM_EPOCHS, eta_min=1e-4)
 logger.info(f"Optimizer: {optimizer}")
 logger.info(f"Scheduler: {scheduler}")
 
@@ -158,9 +157,9 @@ else:
 # Training loop
 logger.info("Starting training loop...")
 acc_best = 0
-for epoch in range(start_epoch, EPOCHS):
+for epoch in range(start_epoch, NUM_EPOCHS):
     logger.info(f"=" * 60)
-    logger.info(f"EPOCH: {epoch+1}/{EPOCHS} | LR: {scheduler.get_last_lr()[0]:.6f}")
+    logger.info(f"EPOCH: {epoch+1}/{NUM_EPOCHS} | LR: {scheduler.get_last_lr()[0]:.6f}")
     print(f'EPOCH: {epoch} | LR: {scheduler.get_last_lr()[0]:.6f}')
     
     # Training phase
