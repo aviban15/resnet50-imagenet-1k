@@ -9,3 +9,4 @@ NUM_CLASSES = 1000
 
 # Training configuration
 NUM_EPOCHS = 50
+RESUME_TRAINING = False
