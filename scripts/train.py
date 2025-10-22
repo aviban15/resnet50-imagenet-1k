@@ -132,21 +132,34 @@ def test(model, device, test_loader):
 ## Training and Testing the Model ##
 
 # Training parameters
-EPOCHS = NUM_EPOCHS
-logger.info(f"Training configuration: {EPOCHS} epochs")
+logger.info(f"Training configuration: {NUM_EPOCHS} epochs")
 model = model.to(device)  # Move model to device
 optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=1e-4)
 # scheduler = StepLR(optimizer, step_size=25, gamma=0.1)
-scheduler = CosineAnnealingLR(optimizer, T_max=EPOCHS, eta_min=1e-4)
+scheduler = CosineAnnealingLR(optimizer, T_max=NUM_EPOCHS, eta_min=1e-4)
 logger.info(f"Optimizer: {optimizer}")
 logger.info(f"Scheduler: {scheduler}")
+
+# Load training state if resuming from checkpoint
+checkpoint_path = 'checkpoints/checkpoint.pth'
+if RESUME_TRAINING:
+    logger.info("Loading checkpoint...")
+    checkpoint = torch.load(checkpoint_path)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+    start_epoch = checkpoint['epoch'] + 1
+    logger.info(f"Resumed from epoch {start_epoch}")
+else:
+    logger.info("Starting fresh training...")
+    start_epoch = 0
 
 # Training loop
 logger.info("Starting training loop...")
 acc_best = 0
-for epoch in range(EPOCHS):
+for epoch in range(start_epoch, NUM_EPOCHS):
     logger.info(f"=" * 60)
-    logger.info(f"EPOCH: {epoch+1}/{EPOCHS} | LR: {scheduler.get_last_lr()[0]:.6f}")
+    logger.info(f"EPOCH: {epoch+1}/{NUM_EPOCHS} | LR: {scheduler.get_last_lr()[0]:.6f}")
     print(f'EPOCH: {epoch} | LR: {scheduler.get_last_lr()[0]:.6f}')
     
     # Training phase
@@ -161,13 +174,13 @@ for epoch in range(EPOCHS):
     logger.info(f"  Train Loss: {loss_train:.4f}, Train Accuracy: {acc_train:.2f}%")
     logger.info(f"  Validation Loss: {loss_test:.4f}, Validation Accuracy: {acc_test:.2f}%")
 
-    # Save training state
+    # Save training state as checkpoint
     torch.save({
         'epoch': epoch,
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
         'scheduler_state_dict': scheduler.state_dict(),
-    }, 'checkpoints/checkpoint.pth')
+    }, checkpoint_path)
     logger.info("Checkpoint saved")
 
     # Save best weights
