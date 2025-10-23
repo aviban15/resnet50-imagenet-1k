@@ -81,7 +81,7 @@ def train(model, device, train_loader, optimizer, scaler, epoch):
     optimizer.zero_grad()
 
     # Predict using model with mixed precision
-    with autocast():
+    with autocast(device_type=device):
       y_pred = model(data)
       # Calculate loss
       # loss = F.nll_loss(y_pred, target)
@@ -114,7 +114,7 @@ def test(model, device, test_loader):
     with torch.no_grad():
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
-            with autocast():
+            with autocast(device_type=device):
                 output = model(data)
                 # test_loss += F.nll_loss(output, target, reduction='sum').item()  # Sum up batch loss
                 test_loss += F.cross_entropy(output, target, reduction='sum').item()  # Sum up batch loss
