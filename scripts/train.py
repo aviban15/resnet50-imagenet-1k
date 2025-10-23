@@ -167,7 +167,7 @@ acc_best = 0
 for epoch in range(start_epoch, NUM_EPOCHS):
     logger.info(f"=" * 60)
     logger.info(f"EPOCH: {epoch+1}/{NUM_EPOCHS} | LR: {scheduler.get_last_lr()[0]:.6f}")
-    print(f'EPOCH: {epoch} | LR: {scheduler.get_last_lr()[0]:.6f}')
+    print(f'EPOCH: {epoch+1} | LR: {scheduler.get_last_lr()[0]:.6f}')
     
     # Training phase
     loss_train, acc_train = train(model, device, train_loader, optimizer, scaler, epoch)
