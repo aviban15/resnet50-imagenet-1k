@@ -7,6 +7,7 @@ import torch.nn.functional as F
 # from torchsummary import summary
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR, CosineAnnealingLR
+from torch.amp import GradScaler, autocast
 
 # Other packages
 import os
@@ -65,7 +66,7 @@ train_acc = []
 test_acc = []
 
 # Train function
-def train(model, device, train_loader, optimizer, epoch):
+def train(model, device, train_loader, optimizer, scaler, epoch):
 # def train(model, device, train_loader, optimizer, scheduler, epoch):
   model.train()  # Set to train mode
   pbar = tqdm(train_loader)
@@ -79,17 +80,18 @@ def train(model, device, train_loader, optimizer, epoch):
     # Initialize gradients to zero
     optimizer.zero_grad()
 
-    # Predict using model
-    y_pred = model(data)
-
-    # Calculate loss
-    # loss = F.nll_loss(y_pred, target)
-    loss = F.cross_entropy(y_pred, target)
+    # Predict using model with mixed precision
+    with autocast():
+      y_pred = model(data)
+      # Calculate loss
+      # loss = F.nll_loss(y_pred, target)
+      loss = F.cross_entropy(y_pred, target)
     train_losses.append(loss)
 
-    # Backpropagation
-    loss.backward()
-    optimizer.step()
+    # Backpropagation with gradient scaling
+    scaler.scale(loss).backward()
+    scaler.step(optimizer)
+    scaler.update()
     # scheduler.step()
 
     # Calculate accuracy
@@ -112,9 +114,10 @@ def test(model, device, test_loader):
     with torch.no_grad():
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
-            output = model(data)
-            # test_loss += F.nll_loss(output, target, reduction='sum').item()  # Sum up batch loss
-            test_loss += F.cross_entropy(output, target, reduction='sum').item()  # Sum up batch loss
+            with autocast():
+                output = model(data)
+                # test_loss += F.nll_loss(output, target, reduction='sum').item()  # Sum up batch loss
+                test_loss += F.cross_entropy(output, target, reduction='sum').item()  # Sum up batch loss
             pred = output.argmax(dim=1, keepdim=True)  # Get the index of the max log-probability
             correct += pred.eq(target.view_as(pred)).sum().item()
 
@@ -134,11 +137,14 @@ def test(model, device, test_loader):
 # Training parameters
 logger.info(f"Training configuration: {NUM_EPOCHS} epochs")
 model = model.to(device)  # Move model to device
+scaler = GradScaler()  # Initialize GradScaler for mixed precision training
 optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=1e-4)
 # scheduler = StepLR(optimizer, step_size=25, gamma=0.1)
 scheduler = CosineAnnealingLR(optimizer, T_max=NUM_EPOCHS, eta_min=1e-4)
+
 logger.info(f"Optimizer: {optimizer}")
 logger.info(f"Scheduler: {scheduler}")
+logger.info("Mixed precision training enabled")
 
 # Load training state if resuming from checkpoint
 checkpoint_path = 'checkpoints/checkpoint.pth'
@@ -148,6 +154,7 @@ if RESUME_TRAINING:
     model.load_state_dict(checkpoint['model_state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+    scaler.load_state_dict(checkpoint['scaler_state_dict'])
     start_epoch = checkpoint['epoch'] + 1
     logger.info(f"Resumed from epoch {start_epoch}")
 else:
@@ -160,10 +167,10 @@ acc_best = 0
 for epoch in range(start_epoch, NUM_EPOCHS):
     logger.info(f"=" * 60)
     logger.info(f"EPOCH: {epoch+1}/{NUM_EPOCHS} | LR: {scheduler.get_last_lr()[0]:.6f}")
-    print(f'EPOCH: {epoch} | LR: {scheduler.get_last_lr()[0]:.6f}')
+    print(f'EPOCH: {epoch+1} | LR: {scheduler.get_last_lr()[0]:.6f}')
     
     # Training phase
-    loss_train, acc_train = train(model, device, train_loader, optimizer, epoch)
+    loss_train, acc_train = train(model, device, train_loader, optimizer, scaler, epoch)
     scheduler.step()
     
     # Validation phase
@@ -180,6 +187,7 @@ for epoch in range(start_epoch, NUM_EPOCHS):
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
         'scheduler_state_dict': scheduler.state_dict(),
+        'scaler_state_dict': scaler.state_dict(),
     }, checkpoint_path)
     logger.info("Checkpoint saved")
 

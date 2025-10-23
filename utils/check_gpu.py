@@ -1,3 +1,10 @@
+"""
+This script checks for available GPUs using PyTorch and displays their properties.
+
+Usage:
+python3 -m utils.check_gpu
+"""
+
 import torch
 
 def show_gpu_info():
