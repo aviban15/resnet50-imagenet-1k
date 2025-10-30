@@ -16,9 +16,9 @@ from tqdm import tqdm
 from datetime import datetime
 
 # Import modules and configurations
-from src.dataloader import get_dataloaders
-from src.model import get_resnet50
-from scripts.config import *
+from dataloader import get_dataloaders
+from model import get_resnet50
+from config import *
 
 ## Logging Setup ##
 
