@@ -4,9 +4,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-# from torchsummary import summary
 import torch.optim as optim
-from torch.optim.lr_scheduler import StepLR, CosineAnnealingLR
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.amp import GradScaler, autocast
 
 # Other packages
@@ -16,9 +15,9 @@ from tqdm import tqdm
 from datetime import datetime
 
 # Import modules and configurations
-from src.dataloader import get_dataloaders
-from src.model import get_resnet50
-from scripts.config import *
+from dataloader import get_dataloaders
+from model import get_resnet50
+from config import *
 
 ## Logging Setup ##
 
@@ -53,6 +52,13 @@ logger.info("Loading ResNet model...")
 model = get_resnet50(num_classes=NUM_CLASSES)
 logger.info("ResNet model loaded successfully")
 
+# Load previous weights if restarting training
+if LOAD_PREV_WEIGHTS:
+    logger.info("Loading previous weights...")
+    path_weights = 'checkpoints/best_model_weights.pth'
+    model.load_state_dict(torch.load(path_weights))
+    logger.info("Previous weights loaded successfully")
+
 ## Device setup ##
 device = "cuda" if torch.cuda.is_available() else "cpu"
 logger.info(f"Using device = {device}")
@@ -81,7 +87,7 @@ def train(model, device, train_loader, optimizer, scaler, epoch):
     optimizer.zero_grad()
 
     # Predict using model with mixed precision
-    with autocast():
+    with autocast(device_type=device):
       y_pred = model(data)
       # Calculate loss
       # loss = F.nll_loss(y_pred, target)
@@ -114,7 +120,7 @@ def test(model, device, test_loader):
     with torch.no_grad():
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
-            with autocast():
+            with autocast(device_type=device):
                 output = model(data)
                 # test_loss += F.nll_loss(output, target, reduction='sum').item()  # Sum up batch loss
                 test_loss += F.cross_entropy(output, target, reduction='sum').item()  # Sum up batch loss
@@ -139,7 +145,6 @@ logger.info(f"Training configuration: {NUM_EPOCHS} epochs")
 model = model.to(device)  # Move model to device
 scaler = GradScaler()  # Initialize GradScaler for mixed precision training
 optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=1e-4)
-# scheduler = StepLR(optimizer, step_size=25, gamma=0.1)
 scheduler = CosineAnnealingLR(optimizer, T_max=NUM_EPOCHS, eta_min=1e-4)
 
 logger.info(f"Optimizer: {optimizer}")
@@ -181,7 +186,7 @@ for epoch in range(start_epoch, NUM_EPOCHS):
     logger.info(f"  Train Loss: {loss_train:.4f}, Train Accuracy: {acc_train:.2f}%")
     logger.info(f"  Validation Loss: {loss_test:.4f}, Validation Accuracy: {acc_test:.2f}%")
 
-    # Save training state as checkpoint
+    # Save training state as latest checkpoint
     torch.save({
         'epoch': epoch,
         'model_state_dict': model.state_dict(),
@@ -191,13 +196,24 @@ for epoch in range(start_epoch, NUM_EPOCHS):
     }, checkpoint_path)
     logger.info("Checkpoint saved")
 
+    # Save additional checkpoint periodically
+    if (epoch+1) % 10 == 0:  # Every 10 epochs
+        torch.save({
+            'epoch': epoch,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'scheduler_state_dict': scheduler.state_dict(),
+            'scaler_state_dict': scaler.state_dict(),
+        }, checkpoint_path.replace('.pth', f'_{epoch+1}.pth'))
+        logger.info(f"Additional checkpoint saved at epoch {epoch+1}")
+
     # Save best weights
     if acc_test > acc_best:
       acc_best = acc_test
       torch.save(model.state_dict(), "checkpoints/best_model_weights.pth")
       logger.info(f"New best accuracy: {acc_best:.2f}% - Best model weights saved")
     
-    # Save log file periodically
+    # Epoch completion log
     logger.info(f"Epoch {epoch+1} completed and logged.")
 
 logger.info("=" * 60)
