@@ -9,4 +9,5 @@ NUM_CLASSES = 1000
 
 # Training configuration
 NUM_EPOCHS = 90
+LOAD_PREV_WEIGHTS = False
 RESUME_TRAINING = False
