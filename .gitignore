@@ -18,6 +18,12 @@ wheels/
 # Data folders
 data/
 
+# Checkpoints and logs
+checkpoints/
+logs/
+*.pth
+*.log
+
 # Archive and other folders
 archive/
 notes/
